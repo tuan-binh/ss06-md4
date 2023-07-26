@@ -92,7 +92,7 @@ case
 end 'Mức học bổng' from dmsv;
 
 -- 21.Cho biết tổng số sinh viên của toàn trường
-select * from dmsv;
+select count(*) total from dmsv;
 
 -- 22.Cho biết tổng sinh viên và tổng sinh viên nữ.
 select Phai,count(MaSV) from dmsv group by Phai;
@@ -118,10 +118,13 @@ join dmkhoa kh on sv.MaKhoa = kh.MaKhoa
 group by kh.MaKhoa;
 
 -- 27.Cho biết học bổng cao nhất của mỗi khoa.
-
+select MaKhoa,max(HocBong) from dmsv group by MaKhoa; 
 
 -- 28.Cho biết tổng số sinh viên nam và tổng số sinh viên nữ của mỗi khoa.
-select * from dmsv sv 
+select kh.TenKhoa,
+count(case when sv.Phai = "Nam" then sv.MaSV end) as "Nam",
+count(case when sv.Phai = "Nữ" then sv.MaSV end) as "Nữ"
+from dmsv sv 
 join dmkhoa kh on sv.MaKhoa = kh.MaKhoa
 group by kh.MaKhoa;
 
@@ -135,7 +138,7 @@ select year(NgaySinh),count(MaSV) from dmsv group by year(NgaySinh) having count
 select NoiSinh,count(MaSV) from dmsv group by NoiSinh having count(MaSV) >= 2; 
 
 -- 32.Cho biết những môn nào có trên 3 sinh viên dự thi.
-select mh.TenMH,count(kq.MaSV) from ketqua kq 
+select mh.TenMH from ketqua kq 
 join dmmh mh on kq.MaMH = mh.MaMH
 group by mh.MaMH having count(kq.MaSV) >= 3;
 
@@ -151,7 +154,11 @@ where sv.Phai like "Nam"
 group by sv.MaSV;
 
 -- 35.Cho biết danh sách các sinh viên rớt trên 2 môn ở lần thi 1.
-
+select sv.* from dmsv sv 
+join ketqua kq on sv.MaSV = kq.MaSV
+where kq.LanThi = 1
+group by sv.MaSV
+having count(case when kq.Diem < 4 then kq.MaMH end) >= 2;
 
 -- 36.Cho biết danh sách những khoa có nhiều hơn 2 sinh viên nam
 select count(sv.MaSV) from dmsv sv
@@ -202,15 +209,23 @@ group by kh.MaKhoa
 order by count(sv.MaSV) desc limit 1;
 
 -- 44.Cho biết môn nào có nhiều sinh viên rớt lần 1 nhiều nhất.
-select * from dmmh where MaMH in (
+select * from dmmh where MaMH = (
 select mh.MaMH from ketqua kq 
 join dmmh mh on kq.MaMH = mh.MaMH
 where kq.LanThi = 1 and kq.Diem < 4
 group by mh.MaMH
-order by count(kq.MaSV) desc);
+order by count(kq.MaSV) desc limit 1);
 
 -- 45.Cho biết sinh viên không học khoa anh văn có điểm thi môn phạm lớn hơn
--- điểm thi văncủa sinh viên học khoa anh văn.
+-- điểm thi văn của sinh viên học khoa anh văn.
+select sv.* from dmsv sv
+join dmkhoa kh on sv.MaKhoa = kh.MaKhoa
+join ketqua kq on kq.MaSV = sv.MaSV
+where not sv.MaKhoa = "AV" and kq.MaMH = "05" and kq.Diem >=
+ (select max(kq.Diem) from dmsv sv
+join dmkhoa kh on sv.MaKhoa = kh.MaKhoa
+join ketqua kq on kq.MaSV = sv.MaSV 
+where sv.MaKhoa like "AV" and kq.MaMH = "05");
 
 
 -- 46.Cho biết sinh viên có nơi sinh cùng với Hải.
@@ -218,15 +233,17 @@ select * from dmsv where NoiSinh = (select NoiSinh from dmsv where TenSV = "Hả
 
 -- 47.Cho biết những sinh viên nào có học bổng lớn hơn tất cả học bổng của
 -- sinh viên thuộc khoa anh văn
-
+select * from dmsv where HocBong > (select max(HocBong) from dmsv where MaKhoa = 'AV');
 
 -- 48.Cho biết những sinh viên có học bổng lớn hơn bất kỳ học bổng của sinh viên
 -- học khóa anh văn
+select * from dmsv where HocBong > (select max(HocBong) from dmsv where MaKhoa = "AV");
 
-
--- 49. ho biết sinh viên nào có điểm thi môn cơ sở dữ liệu lần 2 lớn hơn tất cả điểm
+-- 49. Cho biết sinh viên nào có điểm thi môn cơ sở dữ liệu lần 2 lớn hơn tất cả điểm
 -- thi lần 1 môn cơ sở dữ liệu của những sinh viên khác.
-
+select sv.* from ketqua kq 
+join dmsv sv on kq.MaSV = sv.MaSV
+where kq.LanThi = 2 and kq.MaMH = "01" and kq.Diem >= (select max(Diem) from ketqua where LanThi = 1 and MaMH = "01");
 
 -- 50.Cho biết những sinh viên đạt điểm cao nhất trong từng môn.
 select sv.* from dmsv sv 
@@ -246,26 +263,40 @@ right join ketqua kq on sv.MaSV = kq.MaSV
 where kq.MaMH = '01' and kq.MaSV is null;
 
 -- 53.Cho biết sinh viên nào không thi lần 1 mà có dự thi lần 2.
-
+select * from dmsv sv 
+join ketqua kq on sv.MaSV = kq.MaSV;
 
 -- 54.Cho biết môn nào không có sinh viên khoa anh văn học.
+select * from dmmh where MaMH not in (select mh.MaMH from dmsv sv 
+join ketqua kq on sv.MaSV = kq.MaSV
+join dmmh mh on mh.MaMH = kq.MaMH
+where sv.MaKhoa = "AV" );
 
 
 -- 55.Cho biết những sinh viên khoa anh văn chưa học môn văn phạm.
-
+select distinct sv.* from dmsv sv
+join ketqua kq on sv.MaSV = kq.MaSV
+join dmkhoa kh on kh.MaKhoa = sv.MaKhoa
+join dmmh mh on mh.MaMH = kq.MaMH
+where kh.TenKhoa = "Anh Văn" and not mh.TenMH = "Văn Phạm";
 
 -- 56.Cho biết những sinh viên không rớt môn nào.
--- select * from dmsv sv
--- join ketqua kq on sv.MaSV = kq.MaSV
--- group by sv.MaSV
+select * from dmsv where MaSV not in (select sv.MaSV from dmsv sv 
+join ketqua kq on sv.MaSV = kq.MaSV
+where kq.Diem < 4);
 
 -- 57.Cho biết những sinh viên học khoa anh văn có học bổng và những sinh viên
 -- chưa bao giờ rớt.
-
+select distinct sv.* from dmsv sv 
+join ketqua kq on sv.MaSV = kq.MaSV
+where sv.MaKhoa = "AV" and kq.Diem > 4 and kq.LanThi = 1 and sv.HocBong >= 0;
 
 -- 58.Cho biết khoa nào có đông sinh viên nhận học bổng nhất và khoa nào khoa
 -- nào có ít sinh viên nhận học bổng nhất.
-
+select kh.TenKhoa,count(sv.MaSV) from dmsv sv
+join dmkhoa kh on sv.MaKhoa = kh.MaKhoa 
+where sv.HocBong > 0
+group by sv.MaKhoa; 
 
 -- 59.Cho biết 3 sinh viên có học nhiều môn nhất.
 select sv.* from dmsv sv
@@ -288,4 +319,4 @@ where kq.MaMH in (select MaMH from ketqua where MaSV = "A02");
 -- viên A02 học 
 select sv.* from dmsv sv 
 join ketqua kq on sv.MaSV = kq.MaSV
-where kq.MaMH in (select MaMH from ketqua where MaSV = "A02");
+where (kq.MaMH in (select distinct MaMH from ketqua where MaSV = "A02")) and not sv.MaSV = "A02";
